@@ -1,0 +1,102 @@
+{
+	"name": "@oazmi/esbuild-generic-loader",
+	"version": "0.1.0",
+	"description": "a utility library for building generic file loading plugins for esbuild",
+	"author": "Omar Azmi",
+	"license": "Anti-Competition License",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/oazmi/esbuild-generic-loader.git"
+	},
+	"bugs": {
+		"url": "https://github.com/oazmi/esbuild-generic-loader/issues"
+	},
+	"exports": {
+		".": "./src/mod.ts",
+		"./funcdefs": "./src/funcdefs.ts",
+		"./typedefs": "./src/typedefs.ts"
+	},
+	"publish": {
+		"exclude": [
+			"./.vscode/",
+			"./.github/",
+			"./examples/",
+			"./test/",
+			"./clean.ts"
+		]
+	},
+	"test": {
+		"include": [
+			"./test/",
+			"./src/mod.ts"
+		]
+	},
+	"fmt": {
+		"useTabs": true,
+		"semiColons": false,
+		"singleQuote": false,
+		"lineWidth": 800,
+		"proseWrap": "never",
+		"include": [
+			"./src/",
+			"./test/"
+		]
+	},
+	"compilerOptions": {
+		"lib": [
+			"esnext",
+			"dom",
+			"deno.ns"
+		],
+		"strict": true
+	},
+	"packageJson": {
+		"dependencies": {},
+		"devDependencies": {
+			"typescript": "^5.0.0",
+			"esbuild": "^0.23.1",
+			"typedoc": "^0.26.4",
+			"typedoc-plugin-missing-exports": "^3.0.0",
+			"typedoc-plugin-mermaid": "^1.12.0"
+		},
+		"keywords": [
+			"html-bundler",
+			"esbuild-plugin",
+			"esbuild",
+			"build-tools",
+			"build-scripts",
+			"bundler",
+			"bundle-script",
+			"typescript"
+		]
+	},
+	"buildDist": {
+		"dir": "./dist/",
+		"log": "verbose",
+		"minify": "syntax",
+		"passes": "1",
+		"split": true,
+		"esbuild": {
+			"chunkNames": "chunks/[hash]",
+			"external": []
+		}
+	},
+	"buildDocs": {
+		"dir": "./docs/",
+		"log": "verbose"
+	},
+	"buildNpm": {
+		"dir": "./npm/",
+		"log": "verbose",
+		"install": "npm"
+	},
+	"tasks": {
+		"build-dist": "deno run -A \"jsr:@oazmi/build-tools@0.2.2/cli/dist\" --config=\"./deno.json\"",
+		"build-docs": "deno run -A \"jsr:@oazmi/build-tools@0.2.2/cli/docs\" --config=\"./deno.json\"",
+		"build-npm": "deno run -A \"jsr:@oazmi/build-tools@0.2.2/cli/npm\" --config=\"./deno.json\"",
+		"build-npm-dist": "cd \"./npm/\" && npm run build-dist",
+		"clean": "deno run -A \"./clean.ts\"",
+		"test": "deno test -A",
+		"publish-jsr": "deno publish"
+	}
+}
