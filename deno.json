@@ -39,6 +39,7 @@
 		"proseWrap": "never",
 		"include": [
 			"./src/",
+			"./examples/",
 			"./test/"
 		]
 	},
@@ -91,6 +92,7 @@
 		"install": "npm"
 	},
 	"tasks": {
+		"example-1": "deno run -A \"./examples/1_html/build.ts\"",
 		"build-dist": "deno run -A \"jsr:@oazmi/build-tools@0.2.2/cli/dist\" --config=\"./deno.json\"",
 		"build-docs": "deno run -A \"jsr:@oazmi/build-tools@0.2.2/cli/docs\" --config=\"./deno.json\"",
 		"build-npm": "deno run -A \"jsr:@oazmi/build-tools@0.2.2/cli/npm\" --config=\"./deno.json\"",

@@ -3,11 +3,21 @@
 	<head>
 		<link rel="stylesheet" href="http://google.com/style.css">
 		<link rel="stylesheet" href="./style.css">
+		<!-- the `src` reference below shall be transformed -->
 		<script type="module" src="./code4.ts"></script>
+		<!-- the `src` reference below shall be transformed, and the file associated with it shall be bundled.  -->
 		<script type="module" src="./code1.ts"></script>
 		<script type="module">
+			// the following should not be transformed, since your loader only analyzes `<script>` tags with "src" attributes
+			import * as blahblah from "./code1.ts"
 			globalThis.addEventListener("DOMContentLoaded", async () => {
+				// the following should neither be transformed,
+				// nor should it wrongfully overwritten by `import_statement_regex` in "/src/loader.ts"
 				await import("./code1.ts")
+				// the backtick ("`") and dollar ("$") characters should remain intact (i.e. neither overly escaped, nor break the javascript code itself)
+				const string_template_literal = `hello ${"+"} world`
+				// the backslashes should also be preserved
+				const slashes_string = "\n \\ \\\\ \/ \\// /\ //// // /n"
 			})
 		</script>
 	</head>
