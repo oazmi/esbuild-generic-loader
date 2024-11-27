@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<link rel="stylesheet" href="http://google.com/style.css">
+		<link rel="stylesheet" href="./style.css">
+		<script type="module" src="./code4.ts"></script>
+		<script type="module" src="./code1.ts"></script>
+		<script type="module">
+			globalThis.addEventListener("DOMContentLoaded", async () => {
+				await import("./code1.ts")
+			})
+		</script>
+	</head>
+	<body>
+		<button>Button 1</button>
+		<button>Button 2</button>
+		<button>Button 3</button>
+	</body>
+</html>
