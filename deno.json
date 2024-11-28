@@ -13,6 +13,8 @@
 	},
 	"exports": {
 		".": "./src/mod.ts",
+		"./loader": "./src/loader.ts",
+		"./fs": "./src/fs.ts",
 		"./funcdefs": "./src/funcdefs.ts",
 		"./typedefs": "./src/typedefs.ts"
 	},
@@ -36,11 +38,13 @@
 		"semiColons": false,
 		"singleQuote": false,
 		"lineWidth": 800,
-		"proseWrap": "never",
+		"proseWrap": "preserve",
 		"include": [
 			"./src/",
 			"./examples/",
-			"./test/"
+			"./test/",
+			"./*.md",
+			"./*.json"
 		]
 	},
 	"compilerOptions": {
