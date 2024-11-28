@@ -27,22 +27,26 @@ export interface GenericLoaderConfig {
 	mode?: "bundle" | "inject" | "inject-link"
 }
 
-export interface ContentDependencies {
-	importKeys: Array<string>
+export interface ContentDependencies<K = string> {
+	importKeys: Array<K>
 	importPaths: Array<string>
 	content: string
 }
 
-export interface ScriptWrappedContent extends ContentDependencies {
+export interface ScriptWrappedContent<K = string> extends ContentDependencies<K> {
 	content: string
 }
-
-export interface ImportMetadata {
+/** an entry in {@link GenericLoader.meta["imports"]} that specifies the transformation of a dependency path, after the unparsing is complete.
+ * 
+ * @typeParam K the key `K` must be a json encodable key
+*/
+export interface ImportMetadataEntry<K = string> {
 	/** unique key assigned by the dependency extractor method {@link GenericLoader.extractDeps}. */
-	[key: string]: {
-		/** the original path of the import link. */
-		in: string
-		/** the output bundled path of the import link. */
-		out: string
-	}
+	key: K
+	/** the original path of the import link. */
+	in: string
+	/** the output bundled path of the import link. */
+	out: string
 }
+
+export type ImportMetadata<K = string> = Array<ImportMetadataEntry<K>>

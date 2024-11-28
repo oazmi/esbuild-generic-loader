@@ -6,8 +6,8 @@ export { isArray, isString } from "jsr:@oazmi/kitchensink@0.8.5/struct"
 export const enum DEBUG {
 	META = 1,
 	LOG = 0,
-	ASSERT = 0,
-	ERROR = 0,
+	ASSERT = 1,
+	ERROR = 1,
 	PRODUCTION = 1,
 	MINIFY = 1,
 }

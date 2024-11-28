@@ -1,4 +1,4 @@
-import { json_parse, json_stringify, math_min } from "./deps.ts"
+import { math_min } from "./deps.ts"
 
 
 const
@@ -6,8 +6,6 @@ const
 	escape_regex_for_string_raw = /[\$\`]/g
 
 export const
-	escapeString = json_stringify,
-	unescapeString = json_parse,
 	escapeStringForRegex = (str: string) => (str.replaceAll(escape_regex_chars_regex, "\\$&")),
 	stringToJsEvalString = (str: string) => ("String.raw\`" + str.replaceAll(escape_regex_for_string_raw, "${\"$&\"}") + "\`")
 

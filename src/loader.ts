@@ -54,9 +54,9 @@
  * @module
 */
 
-import { DEBUG } from "./deps.ts"
-import { escapeString, escapeStringForRegex, stringToJsEvalString, zipArrays, zipArraysMapperFactory } from "./funcdefs.ts"
-import type { ContentDependencies, GenericLoaderConfig, ImportMetadata, ScriptWrappedContent } from "./typedefs.ts"
+import { DEBUG, json_stringify } from "./deps.ts"
+import { escapeStringForRegex, stringToJsEvalString, zipArrays, zipArraysMapperFactory } from "./funcdefs.ts"
+import type { ContentDependencies, GenericLoaderConfig, ImportMetadata, ImportMetadataEntry, ScriptWrappedContent } from "./typedefs.ts"
 
 
 const
@@ -72,18 +72,20 @@ const
 	deps_list_to_js_fn = zipArraysMapperFactory<[string, string], string>(
 		([import_key, import_path]): string => {
 			return `
-importKeys.push(${escapeString(import_key)})
-await import(${escapeString(import_path)})`
+importKeys.push(${json_stringify(import_key)})
+await import(${json_stringify(import_path)})`
 		}
 	)
 
 /** the base class for creating custom loaders for any file type that is natively unsupported by `esbuild`.
  * - each loader _class_ handles one type of new file type.
  * - each loader _instance_ handles **one file**, and can be used only **once**, so that it does not hog onto resources.
+ * 
+ * TODO: make to possible to enable string literal templating by removing the replacement of the dollarsign from `stringToJsEvalString`
 */
-export abstract class GenericLoader {
+export abstract class GenericLoader<K = string> {
 	public disposed: boolean = false
-	public meta: { imports: ImportMetadata } = { imports: {} }
+	public meta: { imports: ImportMetadata<K> } = { imports: [] }
 
 	constructor(
 		public content: string,
@@ -97,14 +99,14 @@ export abstract class GenericLoader {
 	 * 
 	 * the actions of this function should be invertible by the {@link insertDeps} method.
 	*/
-	abstract extractDeps(content: string): Promise<ContentDependencies>
+	abstract extractDeps(content: string): Promise<ContentDependencies<K>>
 
 	/** this abstract method is supposed to consume the provided {@link dependencies} object
 	 * and merge/inject them back into the {@link ContentDependencies.content | `dependencies.content`}.
 	 * 
 	 * effectively, this function is supposed to invert the actions of the {@link extractDeps} method.
 	*/
-	abstract insertDeps(dependencies: ContentDependencies): Promise<string>
+	abstract insertDeps(dependencies: ContentDependencies<K>): Promise<string>
 
 	/** this method parses the raw {@link content} provided to this loader,
 	 * extracts its dependencies by calling the {@link extractDeps} method,
@@ -129,8 +131,8 @@ export abstract class GenericLoader {
 			deps_js_string = deps_list_to_js_fn(importKeys, importPaths).join("")
 		if (DEBUG.META) {
 			const meta_imports = this.meta.imports
-			for (const [key, path] of zipArrays<[string, string]>(importKeys, importPaths)) {
-				(meta_imports[key] ??= {} as any).in = path
+			for (const [key, path] of zipArrays<[K, string]>(importKeys, importPaths)) {
+				meta_imports.push({ key, in: path, out: "" })
 			}
 		}
 		return `
@@ -158,7 +160,7 @@ export const content = ` + stringToJsEvalString(content) + "\n"
 			// `\n${deps_js_string}\n`
 			const ordered_import_key_statements = marked_import_statements.replaceAll(import_statement_regex, (_full_match, ...args) => {
 				// here, `_full_match` is:
-				// `await import(${escapeString(bundled_import_path)})`
+				// `await import(${JSON.stringify(bundled_import_path)})`
 				const
 					[named_groups, _full_string, _offset, ..._unused_groups] = args.toReversed(),
 					bundled_import_path = named_groups.importPath as string
@@ -184,16 +186,23 @@ export const content = ` + stringToJsEvalString(content) + "\n"
 			js_blob_url = URL.createObjectURL(js_blob),
 			// now we dynamically load our bundled js script that contains the raw contents (`content`),
 			// and the ordered list of uniqie keys associated with each import path (`importKeys`)
-			{ content, importKeys } = await import(js_blob_url) as ScriptWrappedContent,
+			{ content, importKeys } = await import(js_blob_url) as ScriptWrappedContent<K>,
+			metaImports = this.meta.imports,
 			number_of_imports = importKeys.length
 
-		if (number_of_imports !== importPaths.length) {
+		if (DEBUG.ASSERT && (
+			number_of_imports !== importPaths.length
+			|| (DEBUG.META && number_of_imports !== metaImports.length)
+		)) {
 			throw new Error("encountered a mismatch between number of imported dependencies, and number of keys assigned to dependencies")
 		}
+
 		if (DEBUG.META) {
-			const meta_imports = this.meta.imports
-			for (const [key, path] of zipArrays<[string, string]>(importKeys, importPaths)) {
-				(meta_imports[key] ??= {} as any).out = path
+			for (const [key, path, import_entry] of zipArrays<[K, string, ImportMetadataEntry<K>]>(importKeys, importPaths, metaImports)) {
+				if (DEBUG.ASSERT && (json_stringify(key) !== json_stringify(import_entry.key))) {
+					throw new Error("encountered a mismatch between the original key and the key obtained from evaluating javascript module")
+				}
+				import_entry.out = path
 			}
 		}
 
