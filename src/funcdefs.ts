@@ -3,7 +3,18 @@ import { math_min } from "./deps.ts"
 
 const escape_regex_chars_regex = /[.*+?^${}()|[\]\\]/g
 
-export const escapeStringForRegex = (str: string) => (str.replaceAll(escape_regex_chars_regex, "\\$&"))
+/** escape a string so that it can be matched exactly in a regex constructor.
+ * 
+ * @example
+ * ```ts
+ * const
+ * 	substring = "(++h.e.l.l.o++)",
+ * 	my_regex = new RegExp(`${substring}\(world\)`),
+ * 	my_str = "this string consist of (++h.e.l.l.o++)(world) positioned somewhere in the middle"
+ * console.assert(my_regex.test(my_str) === true)
+ * ```
+*/
+export const escapeStringForRegex = (str: string): string => (str.replaceAll(escape_regex_chars_regex, "\\$&"))
 
 /** create a mapping function that operates on a list or array inputs that are zipped together as tuples. */
 export const zipArraysMapperFactory = <T extends Array<any>, V>(

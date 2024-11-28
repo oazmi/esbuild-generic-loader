@@ -11,12 +11,12 @@ import { console_log, ensureEndSlash, pathToPosixPath, promise_all, resolvePathF
 
 
 /** get the current working directory (`Deno.cwd`) in posix path format. */
-export const getCwdPath = () => { return ensureEndSlash(pathToPosixPath(Deno.cwd())) }
+export const getCwdPath = (): string => { return ensureEndSlash(pathToPosixPath(Deno.cwd())) }
 
 /** resolve a file path so that it becomes absolute, with unix directory separator ("/").
  * TODO: refactor the name `pathResolve` to `resolvePath`
 */
-export const pathResolve = resolvePathFactory(getCwdPath)
+export const pathResolve: ((...segments: string[]) => string) = resolvePathFactory(getCwdPath)
 
 /** the tuple description of a writable (or appendable) file.
  * - the first entry of the array must describe the destination path of the file,
@@ -98,6 +98,7 @@ export const createFiles = async (virtual_files: Array<WritableFileConfig>, conf
 	}))
 }
 
+/** write `esbuild` output files (`BuildResult.outputFiles`) to the filesystem. */
 export const writeOutputFiles = async (virtual_files: Array<EsbuildOutputFile>, config: CreateFilesConfig = {}): Promise<void> => {
 	return createFiles(virtual_files.map((virtual_file): WritableFileConfig => {
 		const

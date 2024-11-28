@@ -27,15 +27,23 @@ export interface GenericLoaderConfig {
 	mode?: "bundle" | "inject" | "inject-link"
 }
 
+/** an interface that describes the dependencies and contents of a single file that is parsed by your loader's {@link GenericLoader.extractDeps} method. */
 export interface ContentDependencies<K = string> {
+	/** an ordered list of unique json-encodable key assigned for each dependency path. */
 	importKeys: Array<K>
+	/** an ordered list of dependency paths that your file requires for bundling. */
 	importPaths: Array<string>
+	/** the contents of your loaded file, further transformed to replace the {@link importPaths | import-paths}
+	 * with {@link importKeys | unique-keys} that are easily identifiable and replaceable later on.
+	*/
 	content: string
 }
 
+/** an interface similar to {@link ContentDependencies}, but with its {@link content} now containing javascript code that can be dynamically imported. */
 export interface ScriptWrappedContent<K = string> extends ContentDependencies<K> {
 	content: string
 }
+
 /** an entry in {@link GenericLoader.meta["imports"]} that specifies the transformation of a dependency path, after the unparsing is complete.
  * 
  * @typeParam K the key `K` must be a json encodable key
@@ -49,4 +57,5 @@ export interface ImportMetadataEntry<K = string> {
 	out: string
 }
 
+/** an array of metadata entries {@link ImportMetadataEntry}. */
 export type ImportMetadata<K = string> = Array<ImportMetadataEntry<K>>
