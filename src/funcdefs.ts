@@ -1,13 +1,9 @@
 import { math_min } from "./deps.ts"
 
 
-const
-	escape_regex_chars_regex = /[.*+?^${}()|[\]\\]/g,
-	escape_regex_for_string_raw = /[\$\`]/g
+const escape_regex_chars_regex = /[.*+?^${}()|[\]\\]/g
 
-export const
-	escapeStringForRegex = (str: string) => (str.replaceAll(escape_regex_chars_regex, "\\$&")),
-	stringToJsEvalString = (str: string) => ("String.raw\`" + str.replaceAll(escape_regex_for_string_raw, "${\"$&\"}") + "\`")
+export const escapeStringForRegex = (str: string) => (str.replaceAll(escape_regex_chars_regex, "\\$&"))
 
 /** create a mapping function that operates on a list or array inputs that are zipped together as tuples. */
 export const zipArraysMapperFactory = <T extends Array<any>, V>(

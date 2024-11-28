@@ -10,8 +10,8 @@ const
 	html_file_path = resolveAsUrl("./input/index.html", this_dir_path),
 	html_file_content = await (await fetch(html_file_path)).text()
 
-const html_file_loader = new HtmlLoader(html_file_content, { path: fromFileUrl(html_file_path) })
-const js_txt = await html_file_loader.parseToJs()
+const html_file_loader = new HtmlLoader({ path: fromFileUrl(html_file_path) })
+const js_txt = await html_file_loader.parseToJs(html_file_content)
 
 const results = await esbuild.build({
 	absWorkingDir: fromFileUrl(this_dir_path),
