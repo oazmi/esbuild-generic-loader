@@ -2,6 +2,7 @@ import { denoPlugins } from "jsr:@luca/esbuild-deno-loader@0.11.0"
 import { fromFileUrl } from "jsr:@std/path"
 import esbuild from "npm:esbuild"
 import { resolveAsUrl } from "../../src/deps.ts"
+import { writeOutputFiles } from "../../src/fs.ts"
 import { HtmlLoader } from "./loader.ts"
 
 
@@ -11,7 +12,7 @@ const
 	html_file_content = await (await fetch(html_file_path)).text()
 
 const html_file_loader = new HtmlLoader({ path: fromFileUrl(html_file_path) })
-const js_txt = await html_file_loader.parseToJs(html_file_content)
+const html_in_js = await html_file_loader.parseToJs(html_file_content)
 
 const results = await esbuild.build({
 	absWorkingDir: fromFileUrl(this_dir_path),
@@ -19,7 +20,7 @@ const results = await esbuild.build({
 	target: "esnext",
 	platform: "browser",
 	stdin: {
-		contents: js_txt,
+		contents: html_in_js,
 		loader: "ts",
 		resolveDir: fromFileUrl(resolveAsUrl("./", html_file_path)),
 		sourcefile: fromFileUrl(html_file_path),
@@ -34,11 +35,24 @@ const results = await esbuild.build({
 	plugins: [...denoPlugins()],
 })
 
-const js_compiled_text = results.outputFiles[0].text
-const html_compiled_text = await html_file_loader.unparseFromJs(js_compiled_text)
-console.log("%c" + "bundled html file output:", "color: green; font-weight: bold;")
+const
+	[html_in_js_compiled, ...other_output_files] = results.outputFiles,
+	html_compiled_text = await html_file_loader.unparseFromJs(html_in_js_compiled.text)
+
+console.log("%c" + `bundled html file: "0", path: "${html_in_js_compiled.path}"`, "color: green; font-weight: bold;")
 console.log(html_compiled_text)
-results.outputFiles.slice(1).forEach((js_file, index) => {
-	console.log("%c" + `bundled js file: ${index}`, "color: green; font-weight: bold;")
+other_output_files.forEach((js_file, index) => {
+	console.log("%c" + `bundled js file: "${index + 1}", path: "${js_file.path}"`, "color: green; font-weight: bold;")
 	console.log(js_file.text)
+})
+
+await writeOutputFiles([
+	{
+		path: html_in_js_compiled.path.replace(/\.js$/, ".html"),
+		text: html_compiled_text
+	}, ...other_output_files
+], {
+	dir: "./output/",
+	log: "verbose",
+	dryrun: false,
 })
