@@ -80,7 +80,7 @@ import type { ContentDependencies, GenericLoaderConfig, ImportMetadata, ImportMe
 
 const
 	defaultGenericLoaderConfig: GenericLoaderConfig = { meta: true },
-	escape_regex_for_string_raw = /[\$\`]/g,
+	escape_regex_for_string_raw = /(\$)|(\`)|(\<\/script\>)/g,
 	imports_beginning_marker = "globalThis.start_of_imports()",
 	imports_ending_marker = "globalThis.end_of_imports()",
 	import_statements_block_regex = new RegExp(
@@ -135,10 +135,18 @@ export abstract class GenericLoader<K = string> {
 	 * or you may wish to introduce additional functions to the script so that it evaluates the output content through a series of transformations. <br>
 	 * in such cases, you would want to overload this method to suit your transformations needs.
 	 * but make sure to always `export` variable named `content`.
+	 * 
+	 * another very important escaping transformation that must take place is for the `"</script>"` closing tag.
+	 * this is because esbuild explicitly transforms all strings containing this literal into `"<\\/script>"`,
+	 * which is equivalent to the original string and a non-issue, unless `String.raw` is used, where the underlying string becomes deformed.
+	 * the reason why esbuild does this explicitly for the `"</script>"` tag is because if someone were to copy and paste their bundled js code into an html's script block,
+	 * then the original form of the `"</script>" string would close the script block pre-maturely, leaking the contents ahead of it and turning the html code illegible. <br>
+	 * check out the following github issue comment for more info about this transformation:
+	 * [github.com/evanw/esbuild/issues/2267#issuecomment-1149396846](https://github.com/evanw/esbuild/issues/2267#issuecomment-1149396846)
 	*/
 	async contentExportJs(content: string): Promise<string> {
 		content = content.replaceAll(escape_regex_for_string_raw, "${\"$&\"}")
-		return "export const content = String.raw\`" + content + "\`\n"
+		return `export const content = String.raw\`` + content + `\`\n`
 	}
 
 	/** this method parses the provided {@link raw_content} parameter,

@@ -1,6 +1,6 @@
 {
 	"name": "@oazmi/esbuild-generic-loader",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "a utility library for building generic file loading plugins for esbuild",
 	"author": "Omar Azmi",
 	"license": "Anti-Competition License",
