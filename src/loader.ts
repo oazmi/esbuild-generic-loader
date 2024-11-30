@@ -79,6 +79,7 @@ import type { ContentDependencies, GenericLoaderConfig, ImportMetadata, ImportMe
 
 
 const
+	defaultGenericLoaderConfig: GenericLoaderConfig = { meta: true },
 	escape_regex_for_string_raw = /[\$\`]/g,
 	imports_beginning_marker = "globalThis.start_of_imports()",
 	imports_ending_marker = "globalThis.end_of_imports()",
@@ -102,11 +103,12 @@ await import(${json_stringify(import_path)})`
  * - each loader _instance_ handles **one file**, and can be used only **once**, so that it does not hog onto resources.
 */
 export abstract class GenericLoader<K = string> {
+	public config: GenericLoaderConfig
 	public meta: { imports: ImportMetadata<K> } = { imports: [] }
 
-	constructor(
-		public config: GenericLoaderConfig = {},
-	) { }
+	constructor(config?: Partial<GenericLoaderConfig>) {
+		this.config = { ...defaultGenericLoaderConfig, ...config }
+	}
 
 	/** this abstract method is supposed to consume the provided raw {@link content}
 	 * and return back the object {@link ContentDependencies} that describes the list of dependencies,
@@ -221,17 +223,17 @@ ${content_export_js}`
 			// now we dynamically load our bundled js script that contains the raw contents (`content`),
 			// and the ordered list of uniqie keys associated with each import path (`importKeys`)
 			{ content, importKeys } = await import(js_blob_url) as ScriptWrappedContent<K>,
-			metaImports = this.meta.imports,
+			{ meta: { imports: metaImports }, config: { meta: metaEnabled } } = this,
 			number_of_imports = importKeys.length
 
 		if (DEBUG.ASSERT && (
 			number_of_imports !== importPaths.length
-			|| (DEBUG.META && number_of_imports !== metaImports.length)
+			|| (DEBUG.META && metaEnabled && number_of_imports !== metaImports.length)
 		)) {
 			throw new Error("encountered a mismatch between number of imported dependencies, and number of keys assigned to dependencies")
 		}
 
-		if (DEBUG.META) {
+		if (DEBUG.META && metaEnabled) {
 			for (const [key, path, import_entry] of zipArrays<[K, string, ImportMetadataEntry<K>]>(importKeys, importPaths, metaImports)) {
 				if (DEBUG.ASSERT && (json_stringify(key) !== json_stringify(import_entry.key))) {
 					throw new Error("encountered a mismatch between the original key and the key obtained from evaluating javascript module")

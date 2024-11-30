@@ -33,6 +33,17 @@ export interface GenericLoaderConfig {
 	 * - `"inject-link"`: similar to `"bundle"`, but will also inject a `<link>` element into your `document`'s head that link's to the output bundled file.
 	*/
 	mode?: "bundle" | "inject" | "inject-link"
+
+	/** enable or disable meta data generation and verification in {@link GenericLoader.meta}.
+	 * 
+	 * this is useful when developing plugins, because that way the {@link GenericLoader} baseclass can ensure that you are accounting for all dependencies when unparsing, based on the parsing step.
+	 * however, this also means that you would be forced to use the same loader object for parsing and unparsing, even if the loader parsing and unparsing steps are functionally pure (the baseclass is also pure, unless `meta` is enabled).
+	 * so, in order to use the {@link GenericLoader.parseToJs} and {@link GenericLoader.unparseFromJs} methods arbitrarily anywhere (i.e. stateless, loader-object wise) without having errors throw to you,
+	 * you will have to explicitly disable this config option (i.e. set it to `false`).
+	 * 
+	 * @defaultValue `true`
+	*/
+	meta: boolean
 }
 
 /** an interface that describes the dependencies and contents of a single file that is parsed by your loader's {@link GenericLoader.extractDeps} method. */
