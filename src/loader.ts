@@ -85,11 +85,12 @@ const
 	imports_ending_marker = "globalThis.end_of_imports()",
 	import_statements_block_regex = new RegExp(
 		escapeStringForRegex(imports_beginning_marker)
+		+ "[\,\;]*" // if esbuild minification is enabled, then either a ";" or a "," delimiter will be placed between statements instead of a new line.
 		+ `(?<importStatements>.*?)`
 		+ escapeStringForRegex(imports_ending_marker),
 		"gs",
 	),
-	import_statement_regex = new RegExp("await\\s+import\\(\\s*\"(?<importPath>.*?)\"\\s*\\)", "g"),
+	import_statement_regex = new RegExp("await\\s+import\\(\\s*\"(?<importPath>.*?)\"\\s*\\)[\,\;]*", "g"),
 	deps_list_to_js_fn = zipArraysMapperFactory<[string, string], string>(
 		([import_key, import_path]): string => {
 			return `
