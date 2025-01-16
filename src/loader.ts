@@ -73,8 +73,7 @@
  * @module
 */
 
-import { DEBUG, json_stringify } from "./deps.ts"
-import { escapeStringForRegex, zipArrays, zipArraysMapperFactory } from "./funcdefs.ts"
+import { DEBUG, escapeLiteralStringForRegex, json_stringify, zipArrays, zipIteratorsMapperFactory } from "./deps.ts"
 import type { ContentDependencies, GenericLoaderConfig, ImportMetadata, ImportMetadataEntry, ScriptWrappedContent } from "./typedefs.ts"
 
 
@@ -84,14 +83,14 @@ const
 	imports_beginning_marker = "globalThis.start_of_imports()",
 	imports_ending_marker = "globalThis.end_of_imports()",
 	import_statements_block_regex = new RegExp(
-		escapeStringForRegex(imports_beginning_marker)
+		escapeLiteralStringForRegex(imports_beginning_marker)
 		+ "[\,\;]*" // if esbuild minification is enabled, then either a ";" or a "," delimiter will be placed between statements instead of a new line.
 		+ `(?<importStatements>.*?)`
-		+ escapeStringForRegex(imports_ending_marker),
+		+ escapeLiteralStringForRegex(imports_ending_marker),
 		"gs",
 	),
 	import_statement_regex = new RegExp("await\\s+import\\(\\s*\"(?<importPath>.*?)\"\\s*\\)[\,\;]*", "g"),
-	deps_list_to_js_fn = zipArraysMapperFactory<[string, string], string>(
+	deps_list_to_js_fn = zipIteratorsMapperFactory<[string, string], string>(
 		([import_key, import_path]): string => {
 			return `
 importKeys.push(${json_stringify(import_key)})
@@ -170,7 +169,7 @@ export abstract class GenericLoader<K = string> {
 	async parseToJs(raw_content: string): Promise<string> {
 		const
 			{ content, importKeys, importPaths } = await this.extractDeps(raw_content),
-			deps_js_string = deps_list_to_js_fn(importKeys, importPaths).join(""),
+			deps_js_string = [...deps_list_to_js_fn(importKeys, importPaths)].join(""),
 			content_export_js = await this.contentExportJs(content)
 
 		if (DEBUG.META) {
