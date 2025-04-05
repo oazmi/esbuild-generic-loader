@@ -6,34 +6,132 @@
  * @module
 */
 
-import { ensureFile } from "jsr:@std/fs@1.0.6"
-import { console_log, ensureEndSlash, pathToPosixPath, promise_all, resolvePathFactory } from "./deps.ts"
+import { console_log, DEBUG, ensureEndSlash, ensureFileUrlIsLocalPath, getRuntime, getRuntimeCwd, identifyCurrentRuntime, noop, parseFilepathInfo, promise_all, resolvePathFactory, RUNTIME, writeFile, writeTextFile, type WriteFileConfig } from "./deps.ts"
 import type { AbsolutePath, Path, RelativePath } from "./typedefs.ts"
 
 
-/** get the current working directory (`Deno.cwd`) in posix path format. */
-export const getCwdPath = (): AbsolutePath => { return ensureEndSlash(pathToPosixPath(Deno.cwd())) }
+export type { WriteFileConfig } from "./deps.ts"
+
+const
+	runtime_enum = identifyCurrentRuntime(),
+	runtime_cwd = ensureEndSlash(getRuntimeCwd(runtime_enum))
+
+/** get the current working directory (i.e. `process.cwd()` or `Deno.cwd`) in posix path format. */
+export const getCwdPath = (): AbsolutePath => { return runtime_cwd }
 
 /** resolve a file path so that it becomes absolute, with unix directory separator ("/"). */
 export const resolvePath: ((...segments: Path[]) => AbsolutePath) = resolvePathFactory(getCwdPath)
+
+let node_fs: Awaited<ReturnType<typeof import_node_fs>>
+
+const
+	import_node_fs = async () => { return import("node:fs/promises") },
+	get_node_fs = async () => { return (node_fs ??= await import_node_fs()) },
+	node_ensureDir = async (dir_path: string): Promise<void> => {
+		const fs = await get_node_fs()
+		return fs
+			.mkdir(dir_path, { recursive: true })
+			.then(noop, async (error) => {
+				// ignore the rejection error if the syscall declares that the directory already exists.
+				if ((error.code as string).toUpperCase() === "EEXIST") {
+					// making sure that the existing directory-entry is not a file.
+					if ((await fs.stat(dir_path)).isDirectory()) { return }
+				}
+				// otherwise, propagate the error.
+				throw error
+			})
+	},
+	node_ensureFile = async (file_path: string): Promise<void> => {
+		const fs = await get_node_fs()
+		const exists: boolean = await fs
+			.stat(file_path)
+			.then((stats) => (stats.isFile()), (error) => {
+				// capture the case where the syscall declares that the file does not exist.
+				if ((error.code as string).toUpperCase() === "ENOENT") { return false }
+				// otherwise, propagate the error.
+				throw error
+			})
+		if (exists) { return }
+		// if the file does not exist, recursively create its parent directories, and then create the file.
+		const parent_dir = parseFilepathInfo(file_path).dirpath
+		await node_ensureDir(parent_dir)
+		return fs.writeFile(file_path, "")
+	}
+
+/** creates a nested directory if it does not already exist.
+ * 
+ * TODO: migrate this function to `@oazmi/kitchensink`.
+ * 
+ * @throws an error is thrown if something other than a folder already existed at the provided path.
+*/
+export const ensureDir = async (dir_path: string | URL): Promise<void> => {
+	dir_path = ensureEndSlash(ensureFileUrlIsLocalPath(dir_path))
+	const runtime = getRuntime(runtime_enum)
+	switch (runtime_enum) {
+		case RUNTIME.DENO:
+			// deno gracefully accepts any existing folder at the `dir_path`, and only errors when the dir-entry is a file.
+			return runtime.mkdir(dir_path, { recursive: true })
+		case RUNTIME.BUN:
+		case RUNTIME.NODE:
+			return node_ensureDir(dir_path)
+		default:
+			throw new Error(DEBUG.ERROR ? `your non-system runtime environment enum ("${runtime_enum}") does not support filesystem writing operations` : "")
+	}
+}
+
+/** ensures that the file exists.
+ * 
+ * if the file already exists, this function does nothing.
+ * if the parent directories for the file do not exist yet, they are created recursively.
+ * 
+ * @throws an error is thrown if something other than a file already existed at the provided path,
+ *   or if creating the parent directory had failed.
+*/
+export const ensureFile = async (file_path: string | URL): Promise<void> => {
+	file_path = ensureEndSlash(ensureFileUrlIsLocalPath(file_path))
+	const runtime = getRuntime(runtime_enum)
+	switch (runtime_enum) {
+		case RUNTIME.DENO: {
+			const exists: boolean = await runtime
+				.stat(file_path)
+				.then((stats: any) => (stats.isFile), (error: any) => {
+					// capture the case where the syscall declares that the file does not exist.
+					if ((error.code as string).toUpperCase() === "ENOENT") { return false }
+					// otherwise, propagate the error.
+					throw error
+				})
+			if (exists) { return }
+			// if the file does not exist, recursively create its parent directories, and then create the file.
+			const parent_dir = parseFilepathInfo(file_path).dirpath
+			await ensureDir(parent_dir)
+			return runtime.writeFile(file_path, new Uint8Array(0))
+		}
+		case RUNTIME.BUN:
+		case RUNTIME.NODE:
+			return node_ensureFile(file_path)
+		default:
+			throw new Error(DEBUG.ERROR ? `your non-system runtime environment enum ("${runtime_enum}") does not support filesystem writing operations` : "")
+	}
+}
 
 /** the tuple description of a writable (or appendable) file.
  * - the first entry of the array must describe the destination path of the file,
  *   relative to the directory defined in {@link CreateFilesConfig.dir}).
  * - the second entry should be the file's contents, which can either be a `string` text, a `ReadableStream`, or a `Uint8Array` binary.
- * - the third and optional entry lets you specify additional {@link Deno.WriteFileOptions | deno specific file writing options},
+ * - the third and optional entry lets you specify additional {@link WriteFileConfig | deno-like file writing options},
  *   such as `"append"` the new text, or permit the creation (`"create"`) of new file if it doesn't exist, etc...
 */
 export type WritableFileConfig = [
 	destination: RelativePath,
 	content: string | Uint8Array,
-	options?: Deno.WriteFileOptions,
+	options?: WriteFileConfig,
 ]
 
 /** configuration options for {@link createFiles}. */
 export interface CreateFilesConfig {
 	/** the desired output directory.
-	 * if a relative path is provided, then it will be resolved as a path relative to Deno's current working directory. (which is generally where `deno.json` resides.)
+	 * if a relative path is provided, then it will be resolved as a path relative to the current working directory.
+	 * (which is generally where `package.json` or `deno.json` resides)
 	*/
 	dir?: Path
 
@@ -89,9 +187,9 @@ export const createFiles = async (virtual_files: Array<WritableFileConfig>, conf
 		if (!dryrun) {
 			await ensureFile(abs_dst)
 			if (typeof content === "string") {
-				await Deno.writeTextFile(abs_dst, content, options)
+				await writeTextFile(runtime_enum, abs_dst, content, options)
 			} else {
-				await Deno.writeFile(abs_dst, content, options)
+				await writeFile(runtime_enum, abs_dst, content, options)
 			}
 		}
 	}))

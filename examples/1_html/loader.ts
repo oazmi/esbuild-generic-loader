@@ -1,4 +1,4 @@
-import { zipArrays } from "../../src/funcdefs.ts"
+import { zipArrays } from "../../src/deps.ts"
 import { GenericLoader } from "../../src/loader.ts"
 import type { ContentDependencies } from "../../src/typedefs.ts"
 
