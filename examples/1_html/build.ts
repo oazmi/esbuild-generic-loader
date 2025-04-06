@@ -1,8 +1,7 @@
-import { denoPlugins } from "jsr:@luca/esbuild-deno-loader@0.11.0"
-import { emptyDir } from "jsr:@std/fs"
-import { fromFileUrl } from "jsr:@std/path"
-import esbuild from "npm:esbuild"
-import { resolveAsUrl } from "../../src/deps.ts"
+import { denoPlugins } from "jsr:@oazmi/esbuild-plugin-deno@0.4.0"
+import { ensureDir, identifyCurrentRuntime, removeEntry } from "jsr:@oazmi/kitchensink@0.9.13/crossenv"
+import esbuild from "npm:esbuild@^0.25.0"
+import { ensureFileUrlIsLocalPath, resolveAsUrl } from "../../src/deps.ts"
 import { writeOutputFiles } from "../../src/fs.ts"
 import { HtmlLoader } from "./loader.ts"
 
@@ -13,28 +12,28 @@ const
 	html_file_path = resolveAsUrl("./input/index.html", this_dir_path),
 	html_file_content = await (await fetch(html_file_path)).text()
 
-const html_file_loader = new HtmlLoader({ path: fromFileUrl(html_file_path) })
+const html_file_loader = new HtmlLoader({ path: ensureFileUrlIsLocalPath(html_file_path) })
 const html_in_js = await html_file_loader.parseToJs(html_file_content)
 
 const results = await esbuild.build({
-	absWorkingDir: fromFileUrl(this_dir_path),
+	absWorkingDir: ensureFileUrlIsLocalPath(this_dir_path),
 	format: "esm",
 	target: "esnext",
 	platform: "browser",
 	stdin: {
 		contents: html_in_js,
 		loader: "ts",
-		resolveDir: fromFileUrl(resolveAsUrl("./", html_file_path)),
-		sourcefile: fromFileUrl(html_file_path),
+		resolveDir: ensureFileUrlIsLocalPath(resolveAsUrl("./", html_file_path)),
+		sourcefile: ensureFileUrlIsLocalPath(html_file_path),
 	},
 	minify: true,
-	outdir: "./output/",
+	outdir: "./output/dist/",
 	splitting: true,
 	bundle: true,
 	write: false,
 	assetNames: "assets/[name]-[hash]",
 	chunkNames: "[ext]/[name]-[hash]",
-	plugins: [...denoPlugins()],
+	plugins: [...denoPlugins({ log: true })],
 })
 
 const
@@ -48,9 +47,12 @@ other_output_files.forEach((js_file, index) => {
 	console.log(js_file.text)
 })
 
-const abs_output_dir = fromFileUrl(resolveAsUrl("./output/", this_dir_path))
+const abs_output_dir = ensureFileUrlIsLocalPath(resolveAsUrl("./output/dist/", this_dir_path))
 console.log(`clearing out the output directory: "${abs_output_dir}"`)
-if (!dryrun) { await emptyDir(abs_output_dir) }
+if (!dryrun) {
+	await removeEntry(identifyCurrentRuntime(), abs_output_dir, { isDirectory: false, recursive: true })
+	await ensureDir(identifyCurrentRuntime(), abs_output_dir)
+}
 await writeOutputFiles([
 	{
 		path: html_in_js_compiled.path.replace(/\.js$/, ".html"),

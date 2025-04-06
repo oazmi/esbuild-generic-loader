@@ -6,7 +6,7 @@
  * @module
 */
 
-import { console_log, DEBUG, ensureEndSlash, ensureFileUrlIsLocalPath, getRuntime, getRuntimeCwd, identifyCurrentRuntime, noop, parseFilepathInfo, promise_all, resolvePathFactory, RUNTIME, writeFile, writeTextFile, type WriteFileConfig } from "./deps.ts"
+import { console_log, ensureEndSlash, ensureFile, getRuntimeCwd, identifyCurrentRuntime, isString, promise_all, resolvePathFactory, writeFile, writeTextFile, type WriteFileConfig } from "./deps.ts"
 import type { AbsolutePath, Path, RelativePath } from "./typedefs.ts"
 
 
@@ -21,98 +21,6 @@ export const getCwdPath = (): AbsolutePath => { return runtime_cwd }
 
 /** resolve a file path so that it becomes absolute, with unix directory separator ("/"). */
 export const resolvePath: ((...segments: Path[]) => AbsolutePath) = resolvePathFactory(getCwdPath)
-
-let node_fs: Awaited<ReturnType<typeof import_node_fs>>
-
-const
-	import_node_fs = async () => { return import("node:fs/promises") },
-	get_node_fs = async () => { return (node_fs ??= await import_node_fs()) },
-	node_ensureDir = async (dir_path: string): Promise<void> => {
-		const fs = await get_node_fs()
-		return fs
-			.mkdir(dir_path, { recursive: true })
-			.then(noop, async (error) => {
-				// ignore the rejection error if the syscall declares that the directory already exists.
-				if ((error.code as string).toUpperCase() === "EEXIST") {
-					// making sure that the existing directory-entry is not a file.
-					if ((await fs.stat(dir_path)).isDirectory()) { return }
-				}
-				// otherwise, propagate the error.
-				throw error
-			})
-	},
-	node_ensureFile = async (file_path: string): Promise<void> => {
-		const fs = await get_node_fs()
-		const exists: boolean = await fs
-			.stat(file_path)
-			.then((stats) => (stats.isFile()), (error) => {
-				// capture the case where the syscall declares that the file does not exist.
-				if ((error.code as string).toUpperCase() === "ENOENT") { return false }
-				// otherwise, propagate the error.
-				throw error
-			})
-		if (exists) { return }
-		// if the file does not exist, recursively create its parent directories, and then create the file.
-		const parent_dir = parseFilepathInfo(file_path).dirpath
-		await node_ensureDir(parent_dir)
-		return fs.writeFile(file_path, "")
-	}
-
-/** creates a nested directory if it does not already exist.
- * 
- * TODO: migrate this function to `@oazmi/kitchensink`.
- * 
- * @throws an error is thrown if something other than a folder already existed at the provided path.
-*/
-export const ensureDir = async (dir_path: string | URL): Promise<void> => {
-	dir_path = ensureEndSlash(ensureFileUrlIsLocalPath(dir_path))
-	const runtime = getRuntime(runtime_enum)
-	switch (runtime_enum) {
-		case RUNTIME.DENO:
-			// deno gracefully accepts any existing folder at the `dir_path`, and only errors when the dir-entry is a file.
-			return runtime.mkdir(dir_path, { recursive: true })
-		case RUNTIME.BUN:
-		case RUNTIME.NODE:
-			return node_ensureDir(dir_path)
-		default:
-			throw new Error(DEBUG.ERROR ? `your non-system runtime environment enum ("${runtime_enum}") does not support filesystem writing operations` : "")
-	}
-}
-
-/** ensures that the file exists.
- * 
- * if the file already exists, this function does nothing.
- * if the parent directories for the file do not exist yet, they are created recursively.
- * 
- * @throws an error is thrown if something other than a file already existed at the provided path,
- *   or if creating the parent directory had failed.
-*/
-export const ensureFile = async (file_path: string | URL): Promise<void> => {
-	file_path = ensureEndSlash(ensureFileUrlIsLocalPath(file_path))
-	const runtime = getRuntime(runtime_enum)
-	switch (runtime_enum) {
-		case RUNTIME.DENO: {
-			const exists: boolean = await runtime
-				.stat(file_path)
-				.then((stats: any) => (stats.isFile), (error: any) => {
-					// capture the case where the syscall declares that the file does not exist.
-					if ((error.code as string).toUpperCase() === "ENOENT") { return false }
-					// otherwise, propagate the error.
-					throw error
-				})
-			if (exists) { return }
-			// if the file does not exist, recursively create its parent directories, and then create the file.
-			const parent_dir = parseFilepathInfo(file_path).dirpath
-			await ensureDir(parent_dir)
-			return runtime.writeFile(file_path, new Uint8Array(0))
-		}
-		case RUNTIME.BUN:
-		case RUNTIME.NODE:
-			return node_ensureFile(file_path)
-		default:
-			throw new Error(DEBUG.ERROR ? `your non-system runtime environment enum ("${runtime_enum}") does not support filesystem writing operations` : "")
-	}
-}
 
 /** the tuple description of a writable (or appendable) file.
  * - the first entry of the array must describe the destination path of the file,
@@ -185,8 +93,8 @@ export const createFiles = async (virtual_files: Array<WritableFileConfig>, conf
 		const abs_dst = resolvePath(dir, dst_path)
 		logVerbose(log, `[in-fs] writing file to: "${abs_dst}"`, "with the configuration:", options)
 		if (!dryrun) {
-			await ensureFile(abs_dst)
-			if (typeof content === "string") {
+			await ensureFile(runtime_enum, abs_dst)
+			if (isString(content)) {
 				await writeTextFile(runtime_enum, abs_dst, content, options)
 			} else {
 				await writeFile(runtime_enum, abs_dst, content, options)

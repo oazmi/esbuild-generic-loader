@@ -1,6 +1,6 @@
 {
 	"name": "@oazmi/esbuild-generic-loader",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"description": "a utility library for building generic file loading plugins for esbuild",
 	"author": "Omar Azmi",
 	"license": "Anti-Competition License",
@@ -58,6 +58,9 @@
 			"esbuild": "^0.25.0",
 			"typedoc": "^0.28.1"
 		},
+		"scripts": {
+			"build-dist": "npm run build-esm -- --platform=node && npm run build-iife -- --platform=node"
+		},
 		"keywords": [
 			"html-bundler",
 			"esbuild-plugin",
@@ -82,7 +85,13 @@
 	},
 	"buildDocs": {
 		"dir": "./docs/",
-		"log": "verbose"
+		"log": "verbose",
+		"copy": [
+			["./readme.md", "./readme.md"],
+			["./license.md", "./license.md"],
+			["./src/", "./src/"],
+			["./examples/", "./examples/"]
+		]
 	},
 	"buildNpm": {
 		"dir": "./npm/",
