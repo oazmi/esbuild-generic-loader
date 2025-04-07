@@ -1,0 +1,59 @@
+{
+  "name": "@oazmi/esbuild-generic-loader",
+  "version": "0.1.3",
+  "description": "a utility library for building generic file loading plugins for esbuild",
+  "keywords": [
+    "html-bundler",
+    "esbuild-plugin",
+    "esbuild",
+    "build-tools",
+    "build-scripts",
+    "bundler",
+    "bundle-script",
+    "typescript"
+  ],
+  "author": "Omar Azmi",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/oazmi/esbuild-generic-loader.git"
+  },
+  "license": "Anti-Competition License",
+  "bugs": {
+    "url": "https://github.com/oazmi/esbuild-generic-loader/issues"
+  },
+  "module": "./esm/mod.js",
+  "exports": {
+    ".": {
+      "import": "./esm/mod.js"
+    },
+    "./loader": {
+      "import": "./esm/loader.js"
+    },
+    "./fs": {
+      "import": "./esm/fs.js"
+    },
+    "./funcdefs": {
+      "import": "./esm/funcdefs.js"
+    },
+    "./typedefs": {
+      "import": "./esm/typedefs.js"
+    }
+  },
+  "scripts": {
+    "build-dist": "npm run build-esm -- --platform=node && npm run build-iife -- --platform=node",
+    "build-esm": "npx esbuild \"./src/mod.ts\" --bundle --format=esm --outfile=\"./dist/@oazmi/esbuild-generic-loader.esm.js\"",
+    "build-esm-minify": "npx esbuild \"./src/mod.ts\" --bundle --minify --format=esm --outfile=\"./dist/@oazmi/esbuild-generic-loader.esm.min.js\"",
+    "build-iife": "npx esbuild \"./src/mod.ts\" --bundle --format=iife --outfile=\"./dist/@oazmi/esbuild-generic-loader.iife.js\"",
+    "build-iife-minify": "npx esbuild \"./src/mod.ts\" --bundle --minify --format=iife --outfile=\"./dist/@oazmi/esbuild-generic-loader.iife.min.js\""
+  },
+  "type": "module",
+  "sideEffects": false,
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.9.0",
+    "typescript": "^5.7.0",
+    "esbuild": "^0.25.0",
+    "typedoc": "^0.28.1"
+  },
+  "_generatedBy": "dnt@dev"
+}
