@@ -73,23 +73,24 @@
  * @module
 */
 
-import { DEBUG, json_stringify } from "./deps.ts"
-import { escapeStringForRegex, zipArrays, zipArraysMapperFactory } from "./funcdefs.ts"
+import { DEBUG, escapeLiteralStringForRegex, json_stringify, zipArrays, zipIteratorsMapperFactory } from "./deps.ts"
 import type { ContentDependencies, GenericLoaderConfig, ImportMetadata, ImportMetadataEntry, ScriptWrappedContent } from "./typedefs.ts"
 
 
 const
-	escape_regex_for_string_raw = /[\$\`]/g,
+	defaultGenericLoaderConfig: GenericLoaderConfig = { meta: true },
+	escape_regex_for_string_raw = /(\$)|(\`)|(\<\/script\>)/g,
 	imports_beginning_marker = "globalThis.start_of_imports()",
 	imports_ending_marker = "globalThis.end_of_imports()",
 	import_statements_block_regex = new RegExp(
-		escapeStringForRegex(imports_beginning_marker)
+		escapeLiteralStringForRegex(imports_beginning_marker)
+		+ "[\,\;]*" // if esbuild minification is enabled, then either a ";" or a "," delimiter will be placed between statements instead of a new line.
 		+ `(?<importStatements>.*?)`
-		+ escapeStringForRegex(imports_ending_marker),
+		+ escapeLiteralStringForRegex(imports_ending_marker),
 		"gs",
 	),
-	import_statement_regex = new RegExp("await\\s+import\\(\\s*\"(?<importPath>.*?)\"\\s*\\)", "g"),
-	deps_list_to_js_fn = zipArraysMapperFactory<[string, string], string>(
+	import_statement_regex = new RegExp("await\\s+import\\(\\s*\"(?<importPath>.*?)\"\\s*\\)[\,\;]*", "g"),
+	deps_list_to_js_fn = zipIteratorsMapperFactory<[string, string], string>(
 		([import_key, import_path]): string => {
 			return `
 importKeys.push(${json_stringify(import_key)})
@@ -102,11 +103,12 @@ await import(${json_stringify(import_path)})`
  * - each loader _instance_ handles **one file**, and can be used only **once**, so that it does not hog onto resources.
 */
 export abstract class GenericLoader<K = string> {
+	public config: GenericLoaderConfig
 	public meta: { imports: ImportMetadata<K> } = { imports: [] }
 
-	constructor(
-		public config: GenericLoaderConfig = {},
-	) { }
+	constructor(config?: Partial<GenericLoaderConfig>) {
+		this.config = { ...defaultGenericLoaderConfig, ...config }
+	}
 
 	/** this abstract method is supposed to consume the provided raw {@link content}
 	 * and return back the object {@link ContentDependencies} that describes the list of dependencies,
@@ -133,10 +135,18 @@ export abstract class GenericLoader<K = string> {
 	 * or you may wish to introduce additional functions to the script so that it evaluates the output content through a series of transformations. <br>
 	 * in such cases, you would want to overload this method to suit your transformations needs.
 	 * but make sure to always `export` variable named `content`.
+	 * 
+	 * another very important escaping transformation that must take place is for the `"</script>"` closing tag.
+	 * this is because esbuild explicitly transforms all strings containing this literal into `"<\\/script>"`,
+	 * which is equivalent to the original string and a non-issue, unless `String.raw` is used, where the underlying string becomes deformed.
+	 * the reason why esbuild does this explicitly for the `"</script>"` tag is because if someone were to copy and paste their bundled js code into an html's script block,
+	 * then the original form of the `"</script>" string would close the script block pre-maturely, leaking the contents ahead of it and turning the html code illegible. <br>
+	 * check out the following github issue comment for more info about this transformation:
+	 * [github.com/evanw/esbuild/issues/2267#issuecomment-1149396846](https://github.com/evanw/esbuild/issues/2267#issuecomment-1149396846)
 	*/
 	async contentExportJs(content: string): Promise<string> {
 		content = content.replaceAll(escape_regex_for_string_raw, "${\"$&\"}")
-		return "export const content = String.raw\`" + content + "\`\n"
+		return `export const content = String.raw\`` + content + `\`\n`
 	}
 
 	/** this method parses the provided {@link raw_content} parameter,
@@ -159,7 +169,7 @@ export abstract class GenericLoader<K = string> {
 	async parseToJs(raw_content: string): Promise<string> {
 		const
 			{ content, importKeys, importPaths } = await this.extractDeps(raw_content),
-			deps_js_string = deps_list_to_js_fn(importKeys, importPaths).join(""),
+			deps_js_string = [...deps_list_to_js_fn(importKeys, importPaths)].join(""),
 			content_export_js = await this.contentExportJs(content)
 
 		if (DEBUG.META) {
@@ -221,17 +231,17 @@ ${content_export_js}`
 			// now we dynamically load our bundled js script that contains the raw contents (`content`),
 			// and the ordered list of uniqie keys associated with each import path (`importKeys`)
 			{ content, importKeys } = await import(js_blob_url) as ScriptWrappedContent<K>,
-			metaImports = this.meta.imports,
+			{ meta: { imports: metaImports }, config: { meta: metaEnabled } } = this,
 			number_of_imports = importKeys.length
 
 		if (DEBUG.ASSERT && (
 			number_of_imports !== importPaths.length
-			|| (DEBUG.META && number_of_imports !== metaImports.length)
+			|| (DEBUG.META && metaEnabled && number_of_imports !== metaImports.length)
 		)) {
 			throw new Error("encountered a mismatch between number of imported dependencies, and number of keys assigned to dependencies")
 		}
 
-		if (DEBUG.META) {
+		if (DEBUG.META && metaEnabled) {
 			for (const [key, path, import_entry] of zipArrays<[K, string, ImportMetadataEntry<K>]>(importKeys, importPaths, metaImports)) {
 				if (DEBUG.ASSERT && (json_stringify(key) !== json_stringify(import_entry.key))) {
 					throw new Error("encountered a mismatch between the original key and the key obtained from evaluating javascript module")
